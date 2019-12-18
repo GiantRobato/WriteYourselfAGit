@@ -9,7 +9,7 @@ import zlib
 import pathlib
 from typing import Optional
 from obj import object_read, object_find, object_hash
-from repository import repo_create, repo_find
+from repository import repo_create, repo_find, ref_list
 
 argparser = argparse.ArgumentParser(description="The stupid content tracker")
 
@@ -158,6 +158,71 @@ def tree_checkout(repo, tree, path):
             with open(dest, 'wb') as f:
                 f.write(obj.blobdata)
 
+argsp = argsubparsers.add_parser("show-ref", help="List references.")
+
+def cmd_show_ref(args):
+    repo = repo_find()
+    refs = ref_list(repo)
+    show_ref(repo, refs, prefix="refs")
+
+def show_ref(repo, refs, with_hash=True, prefix=""):
+    for k,v in refs.items():
+        if type(v) == str:
+            print ("{0}{1}{2}".format(
+                v + " " if with_hash else "",
+                prefix + os.sep if prefix else "",
+                k))
+        else:
+            show_ref(repo, v, with_hash=with_hash, prefix="{0}{1}{2}".format(prefix, os.sep if prefix else "", k))
+
+argsp = argsubparsers.add_parser(
+    "tag",
+    help="List and create tags")
+
+argsp.add_argument("-a",
+                    action="store_true",
+                    dest="create_tag_object",
+                    help="Whether to create a tag object")
+
+argsp.add_argument("name",
+                    nargs="?",
+                    help="The new tag's name")
+
+argsp.add_argument("object",
+                    default="HEAD",
+                    nargs="?",
+                    help="The object the new tag will point to")
+
+def cmd_tag(args):
+    repo = repo_find()
+
+    if args.name:
+        tag_create(args.name, args.object, type="object" if args.create_tag_object else "ref")
+    else:
+        refs = ref_list(repo)
+        show_ref(repo, refs["tags"], with_hash=False)
+
+argsp = argsubparsers.add_parser(
+    "rev-parse",
+    help="Parse revision (or other objects )identifiers")
+
+argsp.add_argument("--wyag-type",
+                   metavar="type",
+                   dest="type",
+                   choices=["blob", "commit", "tag", "tree"],
+                   default=None,
+                   help="Specify the expected type")
+
+argsp.add_argument("name",
+                   help="The name to parse")
+
+def cmd_rev_parse(args):
+    if args.type:
+        fmt = args.type.encode()
+
+    repo = repo_find()
+
+    print (object_find(repo, args.name, args.type, follow=True))
 
 def main(argv=sys.argv[1:]):
     args = argparser.parse_args(argv)

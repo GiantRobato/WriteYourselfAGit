@@ -130,3 +130,27 @@ def repo_find(path : str = ".", required : bool = True):
     
     # Recurse
     return repo_find(parent, required)
+
+
+def ref_resolve(repo, ref):
+    with open(repo_file(repo, ref), 'r') as fp:
+        data = fp.read()[:-1] # drop final \n
+    
+    if data.startswith("ref: "):
+        return ref_resolve(repo, data[5:])
+    else:
+        return data
+
+def ref_list(repo, path=None):
+    if not path:
+        path = repo_dir(repo, "refs")
+    ret = collections.OrderedDict()
+
+    for f in sorted(os.listdir(path)):
+        can = os.path.join(path, f)
+        print(can)
+        if os.path.isdir(can):
+            ref = ref_list(repo, can)
+        else:
+            ret[f] = ref_resolve(repo, can)
+    return ret
